@@ -227,7 +227,7 @@
 (defn mail-context!
   "Tell the companion which diagram is under discussion."
   [state]
-  (when-let [path (:path state)]
+  (when-let [path (when-not (:read-only state) (:path state))]
     (let [root (overlay/metrics-root path)]
       (if-let [id (:proposal-id state)]
         (request-agent! root :context
@@ -397,7 +397,7 @@
   (System/exit 0))
 
 (defn- exit-app! []
-  (when-not (:keep-agent @!bridge)
+  (when-not (or (:keep-agent @!bridge) (:read-only @!bridge))
     (shutdown-children!))
   (halt-vm!))
 
@@ -504,10 +504,10 @@
     (let [y (+ (:y event) (:scroll state 0))
           rows (detail/rows model)]
       (cond
-        (detail/module-at rows y)
+        (and (not (:read-only @!bridge)) (detail/module-at rows y))
         (source-window/open-member-window! (:source @!bridge) (detail/member-ident model))
 
-        (detail/member-at rows y)
+        (and (not (:read-only @!bridge)) (detail/member-at rows y))
         (source-window/open-member-window! (:source @!bridge)
                                            (detail/member-ident model (detail/member-at rows y)))
 
@@ -562,13 +562,16 @@
 (defn setup
   ([path] (setup path false))
   ([path restart?]
+   (setup path restart? false))
+  ([path restart? read-only?]
    (q/frame-rate 30)
    (q/color-mode :rgb)
    (q/smooth)
    (q/text-font (q/create-font "SansSerif" 14 true))
-   (if restart?
-     (document/restart-state path)
-     (document/waiting-state path))))
+   (cond
+     read-only? (assoc (document/load-path path) :read-only true)
+     restart? (document/restart-state path)
+     :else (document/waiting-state path))))
 
 (defn- view-dims []
   (let [w (q/width)
@@ -602,7 +605,8 @@
     state))
 
 (defn update-state [state]
-  (let [state (-> state document/maybe-reload document/poll-mail)]
+  (let [state (cond-> (document/maybe-reload state)
+                (not (:read-only state)) document/poll-mail)]
     (if (:quit-for-restart state)
       (do (document/save-session! state)
           (quit-for-restart!)
@@ -724,7 +728,7 @@
         y (:y event)
         in-sidebar? (>= x (- w layout/sidebar-w))]
     (cond
-      (events/regen-hit? x y w h)
+      (and (not (:read-only state)) (events/regen-hit? x y w h))
       (let [root (overlay/metrics-root (:path state))
             {:keys [woke?]} (request-regen! root)]
         (assoc state :mail-status (if woke?
@@ -734,7 +738,7 @@
       in-sidebar?
       (let [hit (events/inspector-hit state x y w)]
         (cond
-          (and (right-click? event) (= :proposal (:kind hit)))
+          (and (not (:read-only state)) (right-click? event) (= :proposal (:kind hit)))
           (do (popup-proposal-menu!
                 event x y (:id hit)
                 (:name (policy/proposal-by-id (:doc state) (:id hit))))
@@ -750,7 +754,7 @@
             sel (:selected state)
             n (click-count event)]
         (cond
-          (and (right-click? event)
+          (and (not (:read-only state)) (right-click? event)
                (or (= :class (:kind sel))
                    (= :child (:kind sel))
                    (events/layer-id sel)))
@@ -812,16 +816,19 @@
   ([path source-impl]
    (start! path source-impl false))
   ([path source-impl restart?]
-   (swap! !bridge assoc :source source-impl)
-   (let [root (overlay/metrics-root path)]
-     (if restart?
-       (remember-companion! root)
-       (open-in-terminal! root)))
+   (start! path source-impl restart? false))
+  ([path source-impl restart? read-only?]
+   (swap! !bridge assoc :source source-impl :read-only read-only?)
+   (when-not read-only?
+     (let [root (overlay/metrics-root path)]
+       (if restart?
+         (remember-companion! root)
+         (open-in-terminal! root))))
    (q/sketch
     :title "UML viewer"
     :size [window-width window-height]
     :features [:resizable]
-    :setup (fn [] (setup path restart?))
+    :setup (fn [] (setup path restart? read-only?))
     :update #'update-state
     :draw #'draw/draw-state
     :mouse-pressed #'on-main-press

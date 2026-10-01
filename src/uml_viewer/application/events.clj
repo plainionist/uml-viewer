@@ -51,7 +51,7 @@
 (defn add-proposal
   "Append an empty proposal named with a timestamp and show it."
   [state]
-  (if (nil? (:doc state))
+  (if (or (:read-only state) (nil? (:doc state)))
     state
     (let [p {:id (keyword (str "p-" (System/currentTimeMillis)))
              :name (policy/timestamp-name)
@@ -64,7 +64,7 @@
 
 (defn delete-proposal
   [state id]
-  (if (or (nil? id) (nil? (:doc state)))
+  (if (or (:read-only state) (nil? id) (nil? (:doc state)))
     state
     (let [doc (with-proposals (:doc state)
                 (remove #(= id (:id %)) (hierarchy/named-proposals (:doc state))))
@@ -76,7 +76,7 @@
 (defn rename-proposal
   [state id new-name]
   (let [n (and new-name (not (str/blank? (str new-name))) (str new-name))]
-    (if (or (nil? id) (nil? n) (nil? (:doc state)))
+    (if (or (:read-only state) (nil? id) (nil? n) (nil? (:doc state)))
       state
       (let [doc (with-proposals (:doc state)
                   (map #(if (= id (:id %)) (assoc % :name n) %)
@@ -95,7 +95,8 @@
     (or (when (layout/in-rect? (layout/real-diagram-rect window-w) x y)
           {:kind :real-diagram})
         row
-        (when (layout/in-rect? (layout/new-proposal-rect window-w n) x y)
+        (when (and (not (:read-only state))
+             (layout/in-rect? (layout/new-proposal-rect window-w n) x y))
           {:kind :new-proposal})
         (when (layout/in-rect? (layout/declutter-rect window-w n) x y)
           {:kind :declutter}))))

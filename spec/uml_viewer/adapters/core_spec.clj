@@ -32,6 +32,17 @@
         (should= :help @ret)
         (should (re-find #"Usage: clj -M:run" out)))))
 
+  (it "loads read-only diagrams without using restart semantics"
+    (should= {:path "doc.edn" :restart? false :help? false :read-only? true}
+             (core/parse-args ["--read-only" "doc.edn"]))
+    (should= {:path "doc.edn" :restart? false :help? false :read-only? true}
+             (core/parse-args ["doc.edn" "--read-only"]))
+    (should-throw clojure.lang.ExceptionInfo (core/parse-args ["--read-only" "--restart"]))
+    (let [args (atom nil)]
+      (with-redefs [sketch/start! (fn [& arguments] (reset! args arguments))]
+        (with-out-str (core/start! :src "--read-only" "doc.edn"))
+        (should= ["doc.edn" :src false true] @args))))
+
   (it "starts the sketch when not asking for help"
     (let [args (atom nil)]
       (with-redefs [sketch/start! (fn [& a] (reset! args a) :started)]

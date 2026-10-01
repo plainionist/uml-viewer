@@ -96,6 +96,59 @@
 (describe "sketch"
   (before (reset! sketch/!bridge (empty-bridge)))
 
+  (it "loads read-only diagrams immediately and never attaches to a companion"
+    (let [options (atom nil)
+          fail (fn [& _] (throw (Exception. "must not contact companion")))]
+      (with-redefs [q/sketch (fn [& arguments] (reset! options (apply hash-map arguments)) :applet)
+                    uml-viewer.adapters.sketch/open-in-terminal! fail
+                    uml-viewer.adapters.sketch/remember-companion! fail
+                    uml-viewer.adapters.sketch/shutdown-children! fail
+                    uml-viewer.adapters.sketch/halt-vm! (fn [])
+                    document/load-path (fn [path] {:path path :scene :loaded})
+                    document/poll-mail fail
+                    document/maybe-reload identity
+                    uml-viewer.adapters.sketch/apply-bridge-flags identity
+                    sketch/request-agent! fail]
+        (should= :applet (sketch/start! "doc.edn" :src false true))
+        (quiet-quil
+          (fn []
+            (let [state ((:setup @options))]
+              (should= {:path "doc.edn" :scene :loaded :read-only true} state)
+              (should= state (sketch/update-state state))
+              (should= state (sketch/mail-context! state)))))
+        (call 'exit-app!))))
+
+  (it "prevents proposal edits in read-only mode"
+    (let [state {:read-only true :path "doc.edn"
+                 :doc {:hierarchical true :proposals [{:id :draft :name "Draft"}]}}]
+      (with-redefs [document/write-proposals! (fn [& _] (throw (Exception. "must not write")))]
+        (should= state (events/add-proposal state))
+        (should= state (events/rename-proposal state :draft "New name"))
+        (should= state (events/delete-proposal state :draft)))))
+
+  (it "does not dispatch regeneration, edit menus, or source windows in read-only mode"
+    (let [state (assoc (state) :read-only true)
+          fail (fn [& _] (throw (Exception. "read-only action must not run")))]
+      (with-redefs [sketch/request-regen! fail
+                    uml-viewer.adapters.sketch/popup-element-menu! fail
+                    uml-viewer.adapters.sketch/popup-proposal-menu! fail
+                    source-window/open-member-window! fail
+                    uml-viewer.adapters.sketch/applet-size (fn [] [1500 920])
+                    events/regen-hit? (constantly true)
+                    events/inspector-hit (constantly nil)]
+        (should= state (call 'on-main-press state {:x 1490 :y 900 :count 1}))
+        (let [[class-x class-y] (class-xy state :a)]
+          (call 'on-main-press state {:x class-x :y class-y :button :right :count 1}))
+        (with-redefs [events/inspector-hit (constantly {:kind :proposal :id :draft})
+                      events/on-inspector-press (fn [current _] current)]
+          (should= state (call 'on-main-press state {:x 1490 :y 120 :button :right :count 1})))
+        (swap! sketch/!bridge assoc :read-only true :model (a-model))
+        (with-redefs [detail/module-at (constantly true)]
+          (should= {} (call 'detail-mouse-pressed {} {:y 0})))
+        (with-redefs [detail/module-at (constantly false)
+                      detail/member-at (constantly {:name "go"})]
+          (should= {} (call 'detail-mouse-pressed {} {:y 0}))))))
+
   (it "treats a missing or finished applet as dead"
     (should-not (call 'live? nil))
     (should-not (call 'live? (->Finished true)))

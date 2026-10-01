@@ -128,6 +128,12 @@ Rename or move of a function is a new form: overlay does not match old names.
 
 ## Navigation
 
+`clj -M:run --read-only diagram.edn` loads a diagram immediately without
+starting the Grok/tmux companion. Navigation, class cards, zoom, and reload
+remain available. Proposal edits, source windows, Regen, and metric-refresh
+commands are disabled. It neither consumes nor writes companion mailboxes.
+`--read-only` cannot be combined with `--restart`.
+
 **Layer** and **component** mean the same thing: a namespace grouping
 (the first segment after the prefix, or a named proposal group).
 

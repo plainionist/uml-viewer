@@ -454,7 +454,8 @@
       (rgb (if (= selected (:id p)) gold ink))
       (q/text (or (:name p) (name (:id p)))
               (+ (:x r) 6) (geom/cy r)))
-    (draw-btn (layout/new-proposal-rect w n) "New Proposal")
+    (when-not (:read-only state)
+      (draw-btn (layout/new-proposal-rect w n) "New Proposal"))
     (draw-btn (layout/declutter-rect w n)
               (get declutter-label (or (:declutter state) :full)
                    "Declutter none"))
@@ -563,7 +564,8 @@
       nil)
     (when-let [err (:error state)]
       (draw-sidebar-error x (q/height) err))
-    (draw-regen-button state)))
+    (when-not (:read-only state)
+      (draw-regen-button state))))
 
 (defn- in-view? [r cam-x cam-y vw vh]
   (and r
