@@ -6,7 +6,7 @@
 (def layer-rank
   {:domain 0 :source 0 :graph 0
    :clojure-language 0 :typescript-language 0 :rust-language 0
-   :python-language 0
+  :python-language 0 :csharp-language 0
    :engine 1
    :application 2
    :adapters 3
@@ -105,6 +105,7 @@
     (should= [] (violations #(not= :main (layer-of %))
                             #(contains? #{'uml-viewer.clojure-language.source-clojure
                                           'uml-viewer.clojure-language.graph-clojure
+                                          'uml-viewer.csharp-language.graph-csharp
                                           'uml-viewer.typescript-language.source-typescript
                                           'uml-viewer.typescript-language.graph-typescript
                                           'uml-viewer.rust-language.source-rust

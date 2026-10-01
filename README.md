@@ -445,6 +445,60 @@ inspector says the session is not attached.
 
 ## Language graphs
 
+### C# Diagrams
+
+C# support is read-only. It needs the .NET 8+ SDK in addition to the viewer's
+Clojure CLI and Java requirements. A Roslyn helper under `tools/csharp` is
+built automatically when the scanner runs; NuGet access is needed on its
+first build. The helper emits JSON facts and the Clojure adapter produces
+the existing EDN diagram format. No source code is changed, no application
+is run, and no CRAP or mutation commands are invoked.
+
+For another project, create a policy with its real namespace prefix:
+
+```edn
+{:title "My C# Project"
+ :lang :csharp
+ :src "C:/projects/MyApp/MyApp.sln"
+ :prefix "MyApp"
+ :out "examples/myapp.edn"
+ :hierarchical true}
+```
+
+Run `clj -M:ir path/to/policy.edn`, then
+`clj -M:run --read-only examples/myapp.edn`. Paths are relative to the
+working directory, or absolute. `:src` accepts a `.sln`, `.csproj`, or source
+directory. Project and solution scans use Roslyn's MSBuild workspace and
+evaluate the inspected project's MSBuild configuration, so inspect trusted
+projects only. Restore the inspected solution's packages first when needed.
+The scanner does not explicitly build or restore the inspected project.
+
+Directory scans parse all `.cs` files together with framework references;
+they do not read project references, NuGet packages, project compile-item
+filters, or project-specific conditional symbols. Prefer `.sln` or `.csproj`
+for accurate dependencies. `bin`, `obj`, `.git`, `.uml-viewer`, and
+`node_modules` are excluded. Test types are included if they belong to the
+selected project or directory; choose the production project to exclude them.
+
+Each declared class, interface, record, struct, enum, or delegate gets its
+own node. Namespaces form the hierarchy. Partial declarations are merged;
+nested types retain their containing type. IDs preserve case and use `$N`
+for generic arity (`MyApp.Box<T>` has id `Box$1`), while labels retain the
+generic name. Overloads appear as separate member signatures. A solution
+with multiple projects declaring the same fully qualified type is rejected;
+scan those projects separately rather than silently merging them.
+
+Base classes produce inheritance arrows; implemented interfaces produce
+implements arrows. Resolved type/member references, including aliases,
+generic arguments, and method bodies, produce dependency arrows. Merely
+adding `using` does not create a dependency. External types follow the
+existing `:foreign` policy filter. Unresolved types produce no edges, so
+missing references can leave the graph incomplete; workspace diagnostics
+are printed to stderr. Source navigation and metrics integration are not
+implemented for C#. Existing missing-metrics coloring still applies.
+
+### Scanner Contract
+
 Generating the IR asks `uml-viewer.graph` to scan a source tree. `:lang`
 selects the scanner (default `:clojure`). `:sources` scans each root and
 merges them. Register another implementation with

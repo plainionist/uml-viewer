@@ -4,3 +4,7 @@ target
 .DS_Store
 .uml-viewer/
 uml-viewer-log.txt
+.clj-kondo/
+.lsp/
+**/bin/
+**/obj/

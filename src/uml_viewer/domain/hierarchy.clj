@@ -49,7 +49,7 @@
 (defn- module-name
   "Box title: last ns segment, or a proposal group's own label."
   [c]
-  (if (:proposal-group? c)
+  (if (or (:proposal-group? c) (= :csharp (:lang c)))
     (or (:name c) (node-label (:id c)))
     (node-label (:id c))))
 
@@ -81,7 +81,9 @@
     (when (seq others)
       (mapv (fn [cid]
               {:id cid
-               :name (node-label cid)
+                     :name (if-let [leaf (first (filter #(= cid (:id %)) classes))]
+                       (module-name leaf)
+                       (node-label cid))
                :drill? (and (not= cid node-id)
                             (has-descendants? cid classes))})
             kids))))
@@ -131,7 +133,7 @@
         mut (rolled-mutants classes id)
         lv (rolled-level classes id)]
     (cond-> {:id id
-             :name (node-label id)
+             :name (if leaf (module-name leaf) (node-label id))
              :drill? drill?}
       (:ns leaf) (assoc :ns (:ns leaf))
       (:lang leaf) (assoc :lang (:lang leaf))

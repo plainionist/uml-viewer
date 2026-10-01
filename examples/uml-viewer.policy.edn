@@ -6,8 +6,8 @@
  :hierarchical true
  :foreign [quil javax.swing]
  :order [main adapters application engine source graph
-         clojure-language typescript-language rust-language python-language domain]
- :levels [[domain source graph clojure-language typescript-language rust-language python-language]
+         clojure-language typescript-language rust-language python-language csharp-language domain]
+ :levels [[domain source graph clojure-language typescript-language rust-language python-language csharp-language]
           [engine]
           [application]
           [adapters]
@@ -22,6 +22,7 @@
               [:main :typescript-language] :association
               [:main :rust-language] :association
               [:main :python-language] :association
+              [:main :csharp-language] :association
               [:main :application] :association
               [:main.uml-viewer :adapters.core] :association
               [:main.uml-viewer :clojure-language.source-clojure] :association
@@ -32,4 +33,5 @@
               [:main.ir-generator :clojure-language.graph-clojure] :association
               [:main.ir-generator :typescript-language.graph-typescript] :association
               [:main.ir-generator :rust-language.graph-rust] :association
-              [:main.ir-generator :python-language.graph-python] :association}}
+              [:main.ir-generator :python-language.graph-python] :association
+              [:main.ir-generator :csharp-language.graph-csharp] :association}}
